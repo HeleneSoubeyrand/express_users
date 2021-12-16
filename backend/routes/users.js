@@ -1,119 +1,52 @@
 const express = require("express")
 const app = express()
-const axios = require('axios')
-
-let heroes = require("../superHeroes.json")
+const { body, validationResult } = require('express-validator')
 
 
-const checkHero = (req, res, next) => {
-  const { slug } = req.params
-  const hero = heroes.find(hero => hero.slug === slug)
-
-  if (!hero) {
-    res.status(404).send("Hero not found")
-  } else {
-    next()
-  }
-}
-
-const toAddHero = (req, res, next) => {
-  const { name } = req.body
-  const hero = heroes.find(hero => hero.name === name)
-
-  if (hero) {
-    res.status(409).send("This hero already exist")
-  } else {
-    next()
-  }
-}
-
-const validateHero = (req, res, next) => {
-  const a = Object.keys(heroes[0])
-  const b = Object.keys(req.body)
-
- 
-}
-
-
-// GET
+let users = require("../users.json")
 
 app.get("/", (req, res) => {
-  res.json(heroes)
+  res.json(users)
 })
 
-app.get("/:slug", checkHero, (req, res) => {
+app.get("/:slug", (req, res) => {
   const { slug } = req.params
-  // = const slug = req.params.slug
-  const hero = heroes.find(hero => hero.slug === slug)
-
-  res.json(hero)
+  const user = users.find(user => user.slug === slug)
+  
+  if (!user) {
+    res.status(404).send("User not found")
+  } else {
+    res.json(user)
+  }  
 })
 
-app.get("/:slug/powers", checkHero, (req, res) => {
-  const { slug } = req.params
-  const hero = heroes.find(hero => hero.slug === slug)
+app.post("/",
+  body('name')
+  // = comme un middleware
+    .exists().withMessage("Name is required")
+    .isLength({ min: 4 }).withMessage("Name is too short"),
+  body('password')
+    .exists().withMessage("Password is required")
+    .isLength({ min: 8 }).withMessage("Password is too short"),
+  body('city')
+    .optional()
+    .isIn(["Paris", "Tokyo", "Los Angeles"]).withMessage("City value is not accepted"),
 
-  res.json(hero.power)
-})
-
-
-// POST
-
-app.post("/", toAddHero, (req, res) => {
-  const hero = {
-    slug: req.body.name.toLowerCase(),
-    ...req.body 
+  (req, res) => {
+    const { errors } = validationResult(req)
+    console.log(errors)
+    
+    if (errors.length > 0) {
+      res.status(400).json({ errors })
+    } else {
+      const user = {
+        slug: req.body.name.toLowerCase().replace(/[^\w]/gi, '-'),
+        ...req.body
+      }
+      users = [ ...users, user ]
+      res.json(user)
+    }
   }
-  heroes = [ ...heroes, hero ]
-
-  res.json(hero)
-})
-
-
-// PUT
-
-app.put("/:slug", validateHero, (req, res) => {
-  const { slug } = req.params
-  const hero = {
-    ...req.body
-  }
-  const index = heroes.findIndex(hero => hero.slug === slug)
-  // heroes.splice(index, 1, hero)
-
-  heroes[index] = {
-    ...heroes[index],
-    ...req.body,
-  }
-
-  res.json(hero)
-})
-
-app.put("/:slug/powers", checkHero, (req, res) => {
-  const { slug } = req.params
-  const { power } = req.body
-  const hero = heroes.find(hero => hero.slug === slug)
-  hero.power = [...hero.power, power]
-
-  res.json(hero)
-})
-
-
-// DELETE
-
-app.delete("/:slug", checkHero,  (req, res) => {
-  const { slug } = req.params
-  const hero = heroes.find(hero => hero.slug === slug)
-  heroes = heroes.filter(hero => hero.slug !== slug)
-
-  res.json(`${hero.name} a été effacé`)
-})
-
-app.delete("/:slug/power/:power", checkHero, (req, res) => {
-  const { slug, power } = req.params
-  let hero = heroes.find(hero => hero.slug === slug)
-  hero.power = hero.power.filter(p => p !== power)
-
-  res.json(`Le pouvoir ${power} de ${hero.name} a été effacé`)
-})
+)
 
 module.exports = app
